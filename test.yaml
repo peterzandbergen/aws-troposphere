@@ -1,0 +1,106 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Neptune test template
+Resources:
+  DefaultToIgwRoute:
+    Properties:
+      DestinationCidrBlock: '0.0.0.0/0'
+      GatewayId: !Ref 'InternetGatewayAttachment'
+      RouteTableId: !Ref 'PublicRouteTable'
+    Type: AWS::EC2::Route
+  HttpSecurityGroup:
+    Properties:
+      GroupDescription: SSH trafic from anywhere
+      SecurityGroupIngress:
+        - Properties:
+            CidrIp: '0.0.0.0/0'
+            FromPort: '80'
+            IpProtocol: tcp
+            ToPort: '80'
+          Type: AWS::EC2::SecurityGroupIngress
+      Tags:
+        - Key: Project
+          Value: Neptune
+      VpcId: !Ref 'NeptuneVpc'
+    Type: AWS::EC2::SecurityGroup
+  InternetGateway:
+    Properties:
+      Tags:
+        - Key: Project
+          Value: Neptune
+    Type: AWS::EC2::InternetGateway
+  InternetGatewayAttachment:
+    Properties:
+      InternetGatewayId: !Ref 'InternetGateway'
+      VpcId: !Ref 'NeptuneVpc'
+    Type: AWS::EC2::VPCGatewayAttachment
+  NeptuneVpc:
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      Tags:
+        - Key: Project
+          Value: Neptune
+    Type: AWS::EC2::VPC
+  PrivateSubnet:
+    Properties:
+      CidrBlock: 10.0.1.0/24
+      MapPublicIpOnLaunch: 'false'
+      Tags:
+        - Key: Project
+          Value: Neptune
+      VpcId: !Ref 'NeptuneVpc'
+    Type: AWS::EC2::Subnet
+  PublicRouteTable:
+    Properties:
+      Tags:
+        - Key: Project
+          Value: Neptune
+      VpcId: !Ref 'NeptuneVpc'
+    Type: AWS::EC2::RouteTable
+  PublicSubnet:
+    Properties:
+      CidrBlock: 10.0.11.0/24
+      MapPublicIpOnLaunch: 'true'
+      Tags:
+        - Key: Project
+          Value: Neptune
+      VpcId: !Ref 'NeptuneVpc'
+    Type: AWS::EC2::Subnet
+  PublicSubnetRouteTableAssociation:
+    Properties:
+      RouteTableId: !Ref 'PublicRouteTable'
+      SubnetId: !Ref 'PublicSubnet'
+    Type: AWS::EC2::SubnetRouteTableAssociation
+  SSHSecurityGroup:
+    Properties:
+      GroupDescription: SSH trafic from anywhere
+      SecurityGroupIngress:
+        - Properties:
+            CidrIp: '0.0.0.0/0'
+            FromPort: '22'
+            IpProtocol: tcp
+            ToPort: '22'
+          Type: AWS::EC2::SecurityGroupIngress
+      Tags:
+        - Key: Project
+          Value: Neptune
+      VpcId: !Ref 'NeptuneVpc'
+    Type: AWS::EC2::SecurityGroup
+  myinstance:
+    Properties:
+      ImageId: ami-951945d0
+      InstanceType: t1.micro
+      KeyName: pezaPublicKey
+      SecurityGroupIds:
+        - !Ref 'SSHSecurityGroup'
+      SubnetId: !Ref 'PublicSubnet'
+      Tags:
+        - Key: Project
+          Value: Neptune
+      UserData: !Base64 "#!/bin/bash -ex\n          usermod -G docker ec2-user\n \
+        \         yum update -y\n          yum upgrade -y\n          yum install httpd\
+        \ php docker -y\n          systemctl enable httpd\n          echo 'CBS OCIO\
+        \ Demo!!!' > /var/www/html/index.html\n          systemctl start httpd\n \
+        \         systemctl enable docker\n          systemclt start docker\n    \
+        \      "
+    Type: AWS::EC2::Instance
+
